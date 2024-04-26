@@ -80,6 +80,17 @@ function run_atcap_geolocation() {
 
 }
 
+// Enqueue JavaScript file
+function display_city_and_state_enqueue_scripts() {
+    wp_enqueue_script('city-and-states', plugin_dir_url(__FILE__) . 'js/city-and-states.js', array('jquery'));
+    wp_localize_script('city-and-states', 'city_state_ajax', array('ajaxurl' => admin_url('admin-ajax.php')));
+
+    add_action('wp_ajax_get_city_and_state', 'get_city_and_state_ajax');
+    add_action('wp_ajax_nopriv_get_city_and_state', 'get_city_and_state_ajax');
+}
+add_action('wp_enqueue_scripts', 'display_city_and_state_enqueue_scripts');
+
+
 require_once plugin_dir_path(__FILE__) . 'includes/geolocations.php';
 
 function display_city_and_state() {
@@ -94,12 +105,55 @@ function display_city_and_state() {
 
     $result = $geoService->getCityAndState($city_and_state_params);
 
+	echo json_encode($geoService->getCoordinates()) . ' : [detect location]';
+	echo '<hr/>';
 	echo json_encode($result);
-	echo "<hr/>";
-	echo json_encode($geoService->getCoordinates());
 }
 
 add_action('init', 'display_city_and_state');
+
+function get_city_and_state_ajax() {
+
+    $query = [];
+    if(isset($_POST['state'])) {
+        $query['state'] = sanitize_text_field($_POST['state']);
+    }
+    if(isset($_POST['city'])) {
+        $query['city'] = sanitize_text_field($_POST['city']);
+    }
+    if(isset($_POST['postal_code'])) {
+        $query['postal_code'] = sanitize_text_field($_POST['postal_code']);
+    }
+
+    $geoService = new GeoService(GEO_KEY);
+    $result = $geoService->getCityAndState($query);
+
+    // Output the city and state
+    echo json_encode($result);
+
+    wp_die();
+}
+
+// Add a form with text input on every page and post
+function display_city_and_state_form() {
+    ?>
+    <br><br>
+    <form id="city-state-form" method="post">
+        <label for="state-input">Enter State Name:</label><br>
+        <input id="state-input" type="text"><br>
+
+        <label for="city-input">Enter City Name:</label><br>
+        <input id="city-input" type="text"><br>
+
+        <label for="postal-code-input">Enter Postal Code:</label><br>
+        <input id="postal-code-input" type="text"><br>
+
+        <input type="submit" value="Submit">
+    </form>
+    <div id="city-state-result"></div>
+    <?php
+}
+add_action('wp_head', 'display_city_and_state_form');
 
 
 run_atcap_geolocation();
